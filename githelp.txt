@@ -1,0 +1,80 @@
+download/install git
+
+
+在該目錄，按右鍵啟動 git bash
+
+1. who are you? {for FIRST TIME git user}
+   git config --global user.email "myemail@gmail.com"
+   git config --global user.name "naidy"
+
+=============================================================================
+{first time to create repository}
+2. git init {create a repository; .git is created}
+
+3. vi .gitignore  #directory or files NOT to be added (e.g. */Thumbs.db)
+   {vi指令  i: insert, ESC: stop insert, :wq write & quit}
+
+===================================
+to use notepad as the editor
+git config --global core.editor "\"C:\Program Files (x86)\Notepad++\notepad++.exe\" -multiInst"
+
+reference: http://stackoverflow.com/questions/1634161/how-do-i-use-notepad-or-other-with-msysgit
+====================================
+
+4. git add . {add all files to staging area}
+
+5. git commit -m "comments ..."
+
+6. {go to github.com; add new repository}
+
+7. --- do not use this ----
+   {to file manager, right click for git-gui}
+    Remote/Push, set Destination Directory
+
+rather,
+7'. git remote add origin https://github.com/jyunming-chen/<dir>.git
+    git push -u origin master
+
+11/4/2014: from caa
+只要推一版叫做 gh-pages 的 branch 上github就行了
+指令：
+git checkout -b gh-pages
+git push origin gh-pages
+然後就會有一個網址叫
+http://[user name].github.io/[repository name]/xxx.html 
+的網站了。
+
+可編輯一份 index.html, with proper links to other files
+
+=====================================================================
+[when some files are modified]
+
+{at master branch}
+(when new files are to be added to staging area: untracked --> add )
+(commit the updates in staging area)
+
+git add -i  {interactive add}
+
+git commit
+
+git push -u origin master
+
+
+{mirroring changes to gh-pages}
+
+git checkout gh-pages
+git merge master
+git push origin gh-pages
+
+
+{change back to master branch}
+git checkout master
+
+================================================================
+to redo the repository:
+
+{delete the repository on github}
+
+rm -r -f .git
+
+then start from line 2

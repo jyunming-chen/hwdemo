@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+<style>
+#info {
+  position: absolute;
+  top: 0px;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  color: #ffff00
+}
+
+body {
+  overflow: hidden;
+}
+
+
+</style>
+</head>
+
+<body> 
+<div id="info">Homework 3 (tricycle)
+<br> with rear view
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r70/three.min.js"></script>
+<script src="https://dl.dropboxusercontent.com/u/3587259/Code/Threejs/OrbitControls.js">
+
+
+</script>
+<script src="https://jyunming-chen.github.io/tutsplus/js/KeyboardState.js"></script>
+<script>
+// automatic parallel park, bay parking
+// https://www.youtube.com/watch?v=88rNfYVcglk
+
+var scene, renderer, camera;
+var keyboard = new KeyboardState();
+var controls;
+var steerAngle, wheel0, car, frame;
+var clock = new THREE.Clock();
+var C, RC;
+var cameraRear;
+var traceMeshes = [];
+
+init();
+animate();
+
+function init() {
+  var width = window.innerWidth;
+  var height = window.innerHeight;
+
+  renderer = new THREE.WebGLRenderer({
+    antialias: true
+  });
+  renderer.setSize(width, height);
+  renderer.setClearColor(0x777777);
+
+  document.body.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(45, width / height, 1, 10000);
+  camera.position.set (0, 80, 200);
+  camera.lookAt(new THREE.Vector3(0, 0, 0));
+  
+  cameraRear = new THREE.PerspectiveCamera (100, 2, 1, 100);
+    
+  var pointLight = new THREE.PointLight(0xffffff);
+  pointLight.position.set(0, 300, 200);
+  scene.add(pointLight);
+
+  var ambientLight = new THREE.AmbientLight(0x111111);
+  scene.add(ambientLight);
+
+  window.addEventListener('resize', onWindowResize, false);
+
+  var gridXZ = new THREE.GridHelper(160, 20);
+  gridXZ.setColors(new THREE.Color(0xff0000), new THREE.Color(0xffffff));
+  gridXZ.position.set(0, 0, 0);
+  scene.add(gridXZ);
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+	////////////////////////////////////////////////////////////////////
+	car = carModel();
+  scene.add(car);
+	car.angle = 0;
+  car.center = new THREE.Vector3();
+  
+  CMesh = new THREE.Mesh (new THREE.SphereGeometry(2,12,12), new THREE.MeshBasicMaterial({color:0xffffff}));
+  RCMesh = new THREE.Mesh (new THREE.SphereGeometry(2,12,12), new THREE.MeshBasicMaterial({color:0xffff00}));
+  scene.add (CMesh); 
+  scene.add (RCMesh);
+
+	var traceMesh = new THREE.Mesh (new THREE.SphereGeometry(1.5,12,12), new THREE.MeshBasicMaterial({color:0x00ff00}));
+	for (var i = 0; i < 3; i++) {
+  	traceMeshes.push (traceMesh.clone());
+    scene.add (traceMeshes[i]);
+  }
+  
+	steerAngle = -Math.PI/6;  // initial angle
+
+	var pole = new THREE.Mesh (new THREE.CylinderGeometry (5,5,40), new THREE.MeshBasicMaterial());
+  scene.add (pole);
+}
+
+function animate() {
+  this.forward = (this.forward === undefined) ? 1 : this.forward;
+  
+  keyboard.update(); 
+  // pressed, or down
+  if (keyboard.pressed("left")) steerAngle = Math.min (Math.PI/3, steerAngle+0.03125);
+  else if (keyboard.pressed("right")) steerAngle = Math.max (-Math.PI/3, steerAngle-0.03125);
+  else if (keyboard.down("up")) forward = 1;
+  else if (keyboard.down("down")) forward = -1;
+  else if (keyboard.down("space")) forward = 0;
+ 
+  wheel0.rotation.z = steerAngle;
+
+	C = new THREE.Vector3(0,0,0);
+  car.localToWorld (C);
+  CMesh.position.copy (C);
+
+  RC = new THREE.Vector3(-12, 0, -24/Math.tan(steerAngle));
+  RC=car.localToWorld (RC);
+  RCMesh.position.copy (RC);
+  
+  var sign = (steerAngle > 0) ? 1 : -1;
+  var rr = C.clone().sub(RC).length();
+  var omega = forward*15/rr;
+  var delta = clock.getDelta();
+  car.angle += sign*omega*delta;
+  var CC = C.clone().sub(RC).applyAxisAngle (new THREE.Vector3(0,1,0), sign*omega*delta);
+  CC.add (RC);
+  car.position.copy (CC);
+  car.rotation.y = car.angle;
+  
+  requestAnimationFrame(animate);
+  
+  controls.update();
+	camera.lookAt (CMesh.position);  // must placed AFTER OrbitControl
+  
+  // rear view camera
+  var RCL = new THREE.Vector3 (-16,5,0);
+  var RCT = new THREE.Vector3 (-25,5,0);
+  car.localToWorld (RCL);
+  car.localToWorld (RCT);
+  cameraRear.position.copy (RCL);
+  cameraRear.lookAt (RCT);
+  
+  var trace = new THREE.Vector3 (-21,0,0);
+  car.localToWorld (trace);
+  traceMeshes[0].position.copy (trace);
+
+	rotateTrace (RC);
+	render();
+}
+
+function rotateTrace (rotC) {
+ 	var trace = new THREE.Vector3 (-21, 0,0);
+  car.localToWorld (trace);
+	var localY = new THREE.Vector3(0,1,0);
+  for (var i = 0; i < 3; i++) {
+  	var tMrc = trace.clone().sub (rotC);
+    var theta = 10/tMrc.length();
+    var sign = steerAngle > 0 ? 1: -1;
+  	var tr = tMrc.applyAxisAngle (localY, -sign*theta*i);
+    tr.add (rotC);
+    traceMeshes[i].position.copy (tr);
+  }
+
+}
+
+function render() {
+	renderer.autoClear = false;
+  renderer.enableScissorTest (true);
+    
+  var WW = window.innerWidth;
+  var HH = window.innerHeight;
+  renderer.setViewport (0,0,WW,HH);
+  renderer.setScissor (0,0,WW,HH);
+  renderer.clear();
+  renderer.render(scene, camera);
+  
+  
+  renderer.setViewport (WW/2,0,WW/2,HH/2);
+  renderer.setScissor (WW/2, 0, WW/2, HH/2);
+  renderer.clear();
+  renderer.render (scene, cameraRear);
+  
+	renderer.enableScissorTest (false);
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function carModel() {
+  var car = new THREE.Object3D();
+  var wheel = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 2, 32), new THREE.MeshLambertMaterial());
+  var body = new THREE.Mesh(new THREE.BoxGeometry(40, 16, 20), new THREE.MeshLambertMaterial({
+    color: 0xff1234,
+    transparent: true,
+    opacity: 0.42
+  }));
+  body.position.y = 13;
+  
+  var wheel1, wheel2;
+  wheel0 = wheel.clone();
+ 	wheel0.rotation.x = -Math.PI / 2;
+  wheel0.position.set(12, 5, 0);
+  wheel1 = wheel.clone();
+  wheel1.rotation.x = Math.PI / 2;
+  wheel1.position.set(-12, 5, 8);
+  wheel2 = wheel.clone();
+  wheel2.rotation.x = Math.PI / 2;
+  wheel2.position.set(-12, 5, -8);
+
+  car.add(body);
+  car.add(wheel0);
+  car.add(wheel1);
+  car.add(wheel2);
+
+  return car;
+}
+
+</script>
+</body>
+</html>
